@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 
 import psutil
+import tokenize
+from io import StringIO
 
 COMLINE_COV_PY = "coverage run --rcfile=%s %s <%s > NUL 2>&1"
 COMLINE_RUN_PY = "python3 %s <%s >%s "
@@ -68,16 +70,33 @@ def compare_res(user_res, correct_res):
     return flag
 
 
+def is_python3_code(source: list[str]) -> bool:
+    """ Verify if the source code is Python 3
+    
+        :param source: list[str] -> Source code
+        :return: bool -> True if the source code is Python 3, False otherwise
+    """
+    
+    tokens = tokenize.generate_tokens(StringIO('\n'.join(source)).readline)
+    
+    for token_type, token_value, _, _, _ in tokens:
+        if token_type == tokenize.NAME and token_value == 'print':
+            next_token = next(tokens)
+            
+            if next_token[1] == '(':
+                return True
+            else:
+                return False
+            
+    return True
+
+
 def getSrcCov_PY(prename, testLimit, srcPath, testDataPathDir, sourcelist,tempdir):
     covMatrix = []
     res = []
     files = os.listdir(testDataPathDir)
     testList = []
-    python3 = True
-    for source in sourcelist:
-        if "print " in source:
-            python3 = False
-            break
+    python3 = is_python3_code(sourcelist)
 
     coverageFilePath = os.path.join(tempdir,prename) + "coverage"
     configtemp = "[run]\ndata_file = " + coverageFilePath
